@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lernmap · Messestand entwickeln</title>
+<style>
+:root{
+  --bg:#F4F4F4; --paper:#FFFFFF; --ink:#111111; --ink2:#3A3A3A; --muted:#6B6B6B;
+  --line:#D6D6D6; --soft:#E8E8E8; --dark:#1A1A1A;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI","Helvetica Neue",Helvetica,Arial,sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 70px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;cursor:pointer}
+.wrap{max-width:1100px;margin:0 auto;padding:0 20px}
+
+/* header & nav */
+.top{background:var(--ink);color:#F4F4F4;padding:36px 0 28px}
+.top h1{margin:0;font-size:clamp(1.7rem,4.5vw,2.8rem);line-height:1.08;letter-spacing:-.03em;font-weight:700}
+.top p{margin:10px 0 0;color:#A8A8A8;max-width:58ch}
+nav{position:sticky;top:0;z-index:10;background:rgba(244,244,244,.94);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding-top:env(safe-area-inset-top,0px)}
+nav .wrap{display:flex;gap:6px;overflow-x:auto;padding-top:10px;padding-bottom:10px;scrollbar-width:none}
+nav .wrap::-webkit-scrollbar{display:none}
+.tab{border:1px solid var(--line);background:var(--paper);border-radius:999px;padding:9px 16px;font-weight:600;font-size:.95rem;white-space:nowrap}
+.tab[aria-selected="true"]{background:var(--ink);border-color:var(--ink);color:#F4F4F4}
+main{padding:32px 0 72px}
+section.view{display:none}
+section.view.active{display:block}
+h2{font-size:clamp(1.4rem,3vw,1.9rem);letter-spacing:-.02em;margin:0 0 6px;line-height:1.15}
+.lead{color:var(--muted);margin:0 0 24px;max-width:62ch}
+
+/* mindmap */
+.mapbox{background:var(--paper);border:1px solid var(--line);border-radius:22px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.mapbox svg{display:block;width:100%;min-width:760px;height:auto}
+.mapbox text{font-family:var(--font)}
+.b-node{cursor:pointer}
+.b-node rect{fill:var(--paper);stroke:var(--ink);stroke-width:2;transition:fill .2s}
+.b-node text{fill:var(--ink);font-weight:700;font-size:17px}
+.b-node.sel rect{fill:var(--ink)}
+.b-node.sel text{fill:#F4F4F4}
+.leaf{fill:var(--ink2);font-size:14.5px}
+.wire{stroke:#9E9E9E;stroke-width:1.6;fill:none}
+.wire.thin{stroke:#C4C4C4;stroke-width:1.2}
+.scrollhint{display:none;font-size:.85rem;color:var(--muted);margin:8px 2px 0}
+@media (max-width:780px){.scrollhint{display:block}}
+.panel{margin-top:20px;background:var(--paper);border:1px solid var(--line);border-radius:22px;padding:24px 26px}
+.panel h3{margin:0 0 4px;font-size:1.3rem;letter-spacing:-.01em}
+.panel .tagline{color:var(--muted);font-size:.9rem;margin:0 0 14px}
+.panel ul{margin:0;padding-left:1.15em}
+.panel li{margin:6px 0}
+.merk{margin:16px 0 0;padding:14px 16px;background:var(--soft);border-radius:14px;font-weight:600}
+
+/* flashcards */
+.fc-tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:18px}
+.chip{border:1px solid var(--line);background:var(--paper);border-radius:999px;padding:7px 14px;font-size:.88rem;font-weight:600}
+.chip.on{background:var(--ink);color:#F4F4F4;border-color:var(--ink)}
+.chip.ghost{background:transparent}
+.stage{perspective:1400px;max-width:640px;margin:0 auto}
+.card{position:relative;height:340px;transform-style:preserve-3d;transition:transform .5s cubic-bezier(.3,.7,.2,1);cursor:pointer}
+.card.flip{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:24px;padding:30px;display:flex;flex-direction:column}
+.front{background:var(--paper);border:1.5px solid var(--ink)}
+.back{background:var(--ink);color:#F4F4F4;transform:rotateY(180deg)}
+.face .topic{font-size:.82rem;font-weight:600;color:var(--muted)}
+.back .topic{color:#9A9A9A}
+.face .txt{flex:1;display:flex;align-items:center;font-size:clamp(1.15rem,3.2vw,1.45rem);font-weight:650;line-height:1.35;letter-spacing:-.01em}
+.back .txt{font-size:clamp(1rem,2.8vw,1.15rem);font-weight:450;line-height:1.5}
+.face .tap{font-size:.82rem;color:var(--muted)}
+.back .tap{color:#8A8A8A}
+.fc-nav{display:flex;justify-content:space-between;align-items:center;gap:10px;max-width:640px;margin:18px auto 0}
+.btn{border:1px solid var(--ink);background:var(--paper);border-radius:14px;padding:11px 18px;font-weight:650}
+.btn.solid{background:var(--ink);color:#F4F4F4}
+.btn:disabled{opacity:.35;cursor:default}
+.count{font-variant-numeric:tabular-nums;color:var(--muted);font-weight:600}
+.judge{display:flex;gap:10px;justify-content:center;margin-top:12px}
+.progress{max-width:640px;margin:22px auto 0;height:8px;background:var(--soft);border-radius:99px;overflow:hidden}
+.progress div{height:100%;background:var(--ink);width:0;transition:width .3s}
+.stats{max-width:640px;margin:8px auto 0;display:flex;justify-content:space-between;font-size:.88rem;color:var(--muted)}
+
+/* quiz */
+.q{background:var(--paper);border:1px solid var(--line);border-radius:22px;padding:24px;margin-bottom:16px}
+.q h3{margin:0 0 14px;font-size:1.08rem;line-height:1.4}
+.q .num{color:var(--muted);font-weight:600;font-size:.85rem;display:block;margin-bottom:4px}
+.opt{display:block;width:100%;text-align:left;background:var(--bg);border:1.5px solid transparent;border-radius:14px;padding:12px 14px;margin:8px 0;font-size:.98rem}
+.opt:hover:not(:disabled){border-color:var(--line)}
+.opt.right{background:var(--ink);color:#F4F4F4}
+.opt.wrong{border-color:var(--ink);background:var(--paper);text-decoration:line-through;color:var(--muted)}
+.opt:disabled{cursor:default}
+.expl{display:none;margin-top:10px;padding:12px 14px;border-left:3px solid var(--ink);background:var(--soft);border-radius:0 12px 12px 0;font-size:.95rem}
+.q.done .expl{display:block}
+.score{position:sticky;bottom:calc(14px + env(safe-area-inset-bottom,0px));display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--ink);color:#F4F4F4;border-radius:18px;padding:14px 20px;margin-top:24px;font-weight:600}
+.score button{background:#F4F4F4;color:var(--ink);border:0;border-radius:12px;padding:8px 14px;font-weight:650}
+
+/* summary */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+.box{background:var(--paper);border:1px solid var(--line);border-radius:22px;padding:22px 24px}
+.box .no{font-size:.82rem;font-weight:600;color:var(--muted)}
+.box h3{margin:2px 0 10px;font-size:1.15rem}
+.box ul{margin:0;padding-left:1.1em;color:var(--ink2)}
+.box li{margin:5px 0}
+.box.dark{background:var(--ink);color:#F4F4F4;border-color:var(--ink)}
+.box.dark ul{color:#CFCFCF}
+.box.dark .no{color:#9A9A9A}
+table{width:100%;border-collapse:collapse;font-size:.95rem}
+th{text-align:left;font-size:.82rem;color:var(--muted);font-weight:600;padding:0 12px 10px 0;border-bottom:2px solid var(--ink)}
+td{padding:12px 12px 12px 0;border-bottom:1px solid var(--line);vertical-align:top}
+.tablebox{overflow-x:auto}
+.tablebox table{min-width:620px}
+h2.sub{margin-top:44px}
+dl{margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+dl div{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:14px 16px}
+dt{font-weight:700}
+dd{margin:4px 0 0;color:var(--ink2);font-size:.93rem}
+
+/* conflict diagram */
+.square{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:560px}
+.square div{background:var(--paper);border:1.5px solid var(--ink);border-radius:16px;padding:16px;font-weight:650;text-align:center}
+.zs{background:var(--paper);border:1px solid var(--line);border-radius:22px;padding:24px 26px;margin-bottom:18px}
+.zs h3{margin:0 0 4px;font-size:1.25rem;letter-spacing:-.01em}
+.zs .tagline{color:var(--muted);font-size:.9rem;margin:0 0 16px}
+.zs p{margin:12px 0 0}
+.wave{width:100%;height:auto;display:block}
+.flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:8px}
+.flow .st{flex:1 1 140px;background:var(--bg);border-radius:14px;padding:12px 14px;font-weight:650;line-height:1.3}
+.flow .st small{display:block;font-weight:400;color:var(--muted);margin-top:4px}
+.flow .st.dk{background:var(--ink);color:#F4F4F4}.flow .st.dk small{color:#A8A8A8}
+.flow .ar{align-self:center;color:var(--muted);font-weight:700}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.two>div{border-radius:16px;padding:18px 20px;background:var(--bg)}
+.two>div.dk{background:var(--ink);color:#F4F4F4}
+.two h4{margin:0 0 8px;font-size:1.05rem}
+.two ol{margin:0;padding-left:1.2em}.two li{margin:5px 0}
+.lbl{font-size:.8rem;font-weight:600;color:var(--muted)}
+.dk .lbl{color:#9A9A9A}
+.two>div.dk .lbl{color:#9A9A9A}
+.note{background:var(--soft);border-radius:14px;padding:14px 16px;margin-top:14px}
+@media (max-width:640px){.two{grid-template-columns:1fr}.flow .ar{transform:rotate(90deg);align-self:center;width:100%;text-align:center}}
+footer{color:var(--muted);font-size:.85rem;text-align:center;padding:0 20px 40px}
+
+@media print{
+  nav,.score,.fc-tools,.fc-nav,.judge,.progress,.stats{display:none!important}
+  section.view{display:block!important;page-break-before:always}
+  body{background:#fff}
+}
+.zones{display:flex;flex-direction:column;gap:8px;max-width:640px}
+.zones div{border:1.5px solid var(--ink);border-radius:16px;padding:12px 16px;font-weight:650;background:var(--paper)}
+.zones div small{display:block;font-weight:400;color:var(--muted);margin-top:2px}
+.zones div.dk{background:var(--ink);color:#F4F4F4}.zones div.dk small{color:#A8A8A8}
+.zones .aisle{border:1.5px dashed var(--muted);color:var(--muted);text-align:center;background:transparent}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <h1>Messestand entwickeln<br>Lernfeld 9</h1>
+    <p>Lernmap mit Mindmap, Zusammenhängen, Karteikarten, Quiz, Merkblatt und Begriffen. Funktioniert direkt im Browser, auch offline.</p>
+  </div>
+</header>
+
+<nav aria-label="Bereiche">
+  <div class="wrap" role="tablist">
+    <button class="tab" role="tab" data-view="mindmap" aria-selected="true">Mindmap</button>
+    <button class="tab" role="tab" data-view="zusammen" aria-selected="false">Zusammenhänge</button>
+    <button class="tab" role="tab" data-view="karten" aria-selected="false">Karteikarten</button>
+    <button class="tab" role="tab" data-view="quiz" aria-selected="false">Quiz</button>
+    <button class="tab" role="tab" data-view="merkblatt" aria-selected="false">Merkblatt</button>
+    <button class="tab" role="tab" data-view="begriffe" aria-selected="false">Begriffe</button>
+  </div>
+</nav>
+
+<main class="wrap">
+
+<!-- MINDMAP -->
+<section class="view active" id="mindmap">
+  <h2>Mindmap</h2>
+  <p class="lead">Tippe auf einen Ast, um die Details darunter anzuzeigen.</p>
+  <div class="mapbox"><svg id="mapsvg" viewBox="-80 10 1360 760" role="img" aria-label="Mindmap Messestand entwickeln"></svg></div>
+  <p class="scrollhint">← Die Map lässt sich seitlich wischen →</p>
+  <div class="panel" id="panel"></div>
+</section>
+
+<!-- ZUSAMMENHÄNGE -->
+<section class="view" id="zusammen">
+  <h2>Zusammenhänge</h2>
+  <p class="lead">Wie die einzelnen Themen ineinandergreifen. Das brauchst du, um dein eigenes Standkonzept zu begründen.</p>
+
+  <div class="zs">
+    <h3>Der rote Faden im Standkonzept</h3>
+    <p class="tagline">In dieser Reihenfolge triffst du die Entscheidungen</p>
+    <div class="flow">
+      <div class="st">Unternehmen &amp; CI<small>Farben, Werte, Logo, Marktstellung</small></div><span class="ar">→</span>
+      <div class="st">Ziele &amp; Zielgruppe<small>Fachpublikum oder Endverbraucher?</small></div><span class="ar">→</span>
+      <div class="st">Exponate<small>breit oder schmal, Blickfang</small></div><span class="ar">→</span>
+      <div class="st">Standart &amp; Größe<small>Reihen-, Eck-, Kopf-, Blockstand</small></div><span class="ar">→</span>
+      <div class="st">Bauweise &amp; Bauform<small>offen/geschlossen, konventionell/System</small></div><span class="ar">→</span>
+      <div class="st">Zonen<small>Orientierung bis Funktion</small></div><span class="ar">→</span>
+      <div class="st">Gestaltung<small>Boden, Farbe, Form, Material, Schrift, Licht, Möbel</small></div><span class="ar">→</span>
+      <div class="st">Medien &amp; Aktionen<small>Fern-, Nah-, Detailwirkung</small></div><span class="ar">→</span>
+      <div class="st dk">Erfolgskontrolle<small>Ziele erreicht?</small></div>
+    </div>
+    <p class="note"><b>Wichtig:</b> Jede spätere Entscheidung musst du mit den Zielen und der Zielgruppe begründen können. Darum stehen sie ganz vorne.</p>
+  </div>
+
+  <div class="zs">
+    <h3>Der Weg des Besuchers</h3>
+    <p class="tagline">Zonen, Medienwirkung und Gestaltung gehören zusammen</p>
+    <div class="flow">
+      <div class="st">In der Halle<small>Banner ≥ 2,30 m über dem Stand: Stand finden</small></div><span class="ar">→</span>
+      <div class="st">Orientierungszone<small>Blickfang filtert Schaulustige und Interessenten</small></div><span class="ar">→</span>
+      <div class="st">Präsentationszone<small>Exponate, Rollups, Kurzberatung</small></div><span class="ar">→</span>
+      <div class="st">Besprechungszone<small>Detailinfos, Sitzgruppe, Bewirtung</small></div><span class="ar">→</span>
+      <div class="st dk">Nach der Messe<small>Prospekte, Follow-up, Erinnerung</small></div>
+    </div>
+    <div class="tablebox" style="margin-top:16px"><table>
+      <tr><th>Zone</th><th>Funktion</th><th>Medienwirkung</th><th>Licht</th><th>Möbel</th></tr>
+      <tr><td><b>Orientierung</b></td><td>Aufmerksamkeit, Orientierung, Abgrenzung</td><td>Fern- und Nahwirkung</td><td>Zonenlicht auf Blickfang, Fernwirkung</td><td>Kaum, Weg frei halten</td></tr>
+      <tr><td><b>Präsentation</b></td><td>Information, erste Kundenbetreuung</td><td>Nah- und Detailwirkung</td><td>Zonenlicht auf Exponate</td><td>Theken, Stehtische, Podeste, Vitrinen</td></tr>
+      <tr><td><b>Besprechung</b></td><td>Kommunikation, Verkauf, Kundenbindung</td><td>Detailwirkung, Tablet, Präsentation</td><td>Raumbeleuchtung, Stimmungslicht</td><td>Bequeme Sitzgruppen, Kabinen, Bar</td></tr>
+      <tr><td><b>Funktion</b></td><td>Lager, Träger</td><td>keine</td><td>Grundbeleuchtung</td><td>Schränke, Stauraum</td></tr>
+    </table></div>
+    <p class="note"><b>Faustregel:</b> Je weiter innen, desto intensiver das Gespräch, desto ruhiger das Licht und desto bequemer die Möbel.</p>
+  </div>
+
+  <div class="zs">
+    <h3>Offen oder geschlossen: zwei Wege</h3>
+    <p class="tagline">Die Bauweise steuert den Besucherzustrom (Abgrenzungsfunktion)</p>
+    <div class="two">
+      <div><span class="lbl">Offene Bauweise</span><h4>Viele Besucher</h4><ol><li>Keine sichtbehindernden Außenwände</li><li>Alle Exponate sofort sichtbar</li><li>Wirkt einladend, viele spontane Besucher</li><li>Wenig Ruhe für lange Gespräche</li><li>Passt zum Blockstand und zu Publikumsmessen</li></ol></div>
+      <div class="dk"><span class="lbl">Geschlossene Bauweise</span><h4>Gefilterte Besucher</h4><ol><li>Raumelemente bilden den Standkorpus</li><li>Zonen ungestört, Wände als Infofläche</li><li>Besucher muss hineingehen</li><li>Deshalb Neugier wecken (Blickfang, Einblicke)</li><li>Passt zu Reihen-, Kopf- und Blockstand, Fachpublikum</li></ol></div>
+    </div>
+  </div>
+
+  <div class="zs">
+    <h3>Konventionell oder System: zwei Wege</h3>
+    <p class="tagline">Entscheidung zwischen Wirkung und Aufwand</p>
+    <div class="two">
+      <div><span class="lbl">Konventioneller Stand</span><h4>Individuell</h4><ol><li>Einzelanfertigung, Fachpersonal nötig</li><li>Viel Planungszeit, hohe Kosten</li><li>Jeder Architekturwunsch umsetzbar</li><li>Hohe Sog-, Aufmerksamkeits- und Signalwirkung</li><li>Teils nicht wiederverwendbar; Lager, Transport, Entsorgung kosten</li></ol></div>
+      <div class="dk"><span class="lbl">Systemstand</span><h4>Modular</h4><ol><li>Vorgefertigte Bauteile</li><li>Wirtschaftlicher, wenig Personal für Auf- und Abbau</li><li>Mehrfach nutzbar, umweltschonender</li><li>Gut zu transportieren und zu lagern</li><li>Kaufen oder mieten; ergänzbar mit Displays und Möbeln</li></ol></div>
+    </div>
+    <p class="note"><b>Mischform:</b> Konventionelle Elemente plus Systembauteile verbinden individuelle Gestaltung mit Wiederverwendung.</p>
+  </div>
+
+  <div class="zs">
+    <h3>Fachpublikum oder Endverbraucher?</h3>
+    <p class="tagline">Die Zielgruppe verändert fast jede Entscheidung</p>
+    <div class="tablebox"><table>
+      <tr><th>Bereich</th><th>Fachpublikum (Messe)</th><th>Endverbraucher (Ausstellung)</th></tr>
+      <tr><td><b>Exponate</b></td><td>Schmal, gezielt auf bestimmte Produkte lenken</td><td>Breit, möglichst viele ansprechen</td></tr>
+      <tr><td><b>Zonen</b></td><td>Großer Besprechungsbereich, ggf. Kabinen</td><td>Großer Präsentations- und Aktionsbereich</td></tr>
+      <tr><td><b>Bauweise</b></td><td>Eher geschlossen oder teilweise offen</td><td>Eher offen, einladend</td></tr>
+      <tr><td><b>Farbe &amp; Form</b></td><td>Professionell, z. B. Technik: Blau/Grau, geometrisch</td><td>Auch jugendlich, emotional, verspielt</td></tr>
+      <tr><td><b>Medien</b></td><td>Datenblätter, technische Infos, Konfiguratoren</td><td>Videos, Gamification, Mitmachen</td></tr>
+      <tr><td><b>Aktionen</b></td><td>Produktvorführung, Fachvortrag, Workshop</td><td>Gewinnspiel, Show, Kostproben</td></tr>
+    </table></div>
+  </div>
+
+  <div class="zs">
+    <h3>Die CI als Klammer</h3>
+    <p class="tagline">Darum wirkt ein Stand wie aus einem Guss</p>
+    <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr))">
+      <div class="box"><span class="no">Farbe</span><h3>Hausfarben</h3><p style="margin:0;color:var(--ink2)">Aus Logo, Website und Einladung bekannt, erhöhen die Wiedererkennung.</p></div>
+      <div class="box"><span class="no">Form &amp; Material</span><h3>Formensprache</h3><p style="margin:0;color:var(--ink2)">Geometrisch und Metall für Technik, organisch und Holz für Natur.</p></div>
+      <div class="box"><span class="no">Schrift</span><h3>Hausschrift</h3><p style="margin:0;color:var(--ink2)">Schriftarten und Logo wie im Corporate Design.</p></div>
+      <div class="box dark"><span class="no">Medien &amp; Aktionen</span><h3>Auch hier CI</h3><p style="margin:0;color:#CFCFCF">Auch Filme, Displays und Aktionen müssen zur CI passen, sonst bleibt nur die Show im Kopf.</p></div>
+    </div>
+  </div>
+
+  <div class="zs">
+    <h3>Das Gesamtbild</h3>
+    <p class="tagline">Alles in einem Ablauf</p>
+    <div class="flow">
+      <div class="st">Ausgangsgrößen<small>CI, Ziele, Zielgruppe, Etat, Angebot, Leitidee, Halle</small></div><span class="ar">→</span>
+      <div class="st">Werkzeuge<small>Standart, Bauweise, Bauform, Zonen, Gestaltung, Medien, Aktionen</small></div><span class="ar">→</span>
+      <div class="st dk">Wirkung<small>Funktionen erfüllt, Messeziele erreicht</small></div>
+    </div>
+    <p class="note"><b>Grenzen und Regeln:</b> Budget, technische Richtlinien des Veranstalters, Brandschutz, Standsicherheit, Barrierefreiheit, Genehmigung für Aktionen, Lautstärke, GEMA, Urheberrecht.</p>
+  </div>
+</section>
+
+<!-- FLASHCARDS -->
+<section class="view" id="karten">
+  <h2>Karteikarten</h2>
+  <p class="lead">Karte antippen zum Umdrehen. Markiere, ob du sie gewusst hast. „Nochmal“-Karten kommen ans Ende des Stapels.</p>
+  <div class="fc-tools" id="fcFilter"></div>
+  <div class="stage"><div class="card" id="card">
+    <div class="face front"><span class="topic" id="fTopic"></span><div class="txt" id="fText"></div><span class="tap">Antippen zum Umdrehen</span></div>
+    <div class="face back"><span class="topic" id="bTopic"></span><div class="txt" id="bText"></div><span class="tap">Antippen für die Frage</span></div>
+  </div></div>
+  <div class="judge"><button class="btn" id="again">Nochmal</button><button class="btn solid" id="known">Gewusst</button></div>
+  <div class="fc-nav"><button class="btn" id="prev">← Zurück</button><span class="count" id="count"></span><button class="btn" id="next">Weiter →</button></div>
+  <div class="progress"><div id="bar"></div></div>
+  <div class="stats"><span id="statKnown"></span><span><button class="chip ghost" id="shuffle">Mischen</button> <button class="chip ghost" id="reset">Zurücksetzen</button></span></div>
+</section>
+
+<!-- QUIZ -->
+<section class="view" id="quiz">
+  <h2>Quiz</h2>
+  <p class="lead">Eine Antwort pro Frage. Nach dem Antippen siehst du sofort die Erklärung.</p>
+  <div id="quizList"></div>
+  <div class="score"><span id="scoreTxt">0 von 0 richtig</span><button id="quizReset">Neu starten</button></div>
+</section>
+
+<!-- SUMMARY -->
+<section class="view" id="merkblatt">
+  <h2>Merkblatt</h2>
+  <p class="lead">Alle Infoblätter kompakt zum Wiederholen.</p>
+  <div class="grid">
+    <div class="box"><span class="no">AUMA-Text</span><h3>Messe &amp; Messestand</h3><ul><li>Messe (§ 64 GewO): wesentliches Angebot, nach Muster an gewerbliche Abnehmer</li><li>Ausstellung (§ 65 GewO): repräsentatives Angebot, auch Information</li><li>Stand: zeitlich begrenzt, 3D, multifunktional, multisensual, CI-basiert</li></ul></div>
+    <div class="box"><span class="no">Funktionen und Ziele</span><h3>14 Funktionen</h3><ul><li>Außen: Aufmerksamkeit, Profilierung, Markenführung, Abgrenzung</li><li>Kontakt: Information, Begegnung, Orientierung, Verkauf, Kundenbetreuung</li><li>Erleben: Inspiration, Erlebnis, Motivation; Technik: Träger, Lager</li></ul></div>
+    <div class="box"><span class="no">AUMA-Terminplan</span><h3>Zeitplan</h3><ul><li>12–9 Monate Entscheidung, Anmeldeschluss beachten</li><li>9–8 Planung (Budget, Personal), 8–1 Organisation</li><li>Aufbau, Messe, Abbau, danach Erfolgskontrolle</li></ul></div>
+    <div class="box"><span class="no">Standbauweisen</span><h3>Offen bis geschlossen</h3><ul><li>Offen: alles sichtbar, einladend, Blockstand</li><li>Teilweise offen: reduzierter Einblick, häufig</li><li>Geschlossen: Zonen, Infowände, Neugier wecken</li></ul></div>
+    <div class="box"><span class="no">Standbauformen</span><h3>Konventionell vs. System</h3><ul><li>Konventionell: individuell, teuer, hohe Signalwirkung</li><li>System: modular, günstig, wiederverwendbar</li><li>6 Prinzipien: Stütze-Zarge, Stab-Knoten, Platten, Paneel-Stangen, Struktur-Träger, Falt/Klapp/Steck</li></ul></div>
+    <div class="box dark"><span class="no">Funktionsbereiche</span><h3>Vier Zonen nach Falcke</h3><ul><li>Orientierung: Blickfang, Filter</li><li>Präsentation: Exponate, Kurzberatung</li><li>Besprechung: hinten, vertraulich, Bewirtung</li><li>Funktion: Küche, Lager, Garderobe, Technik</li></ul></div>
+    <div class="box"><span class="no">Exponate</span><h3>Auswahl &amp; Platzierung</h3><ul><li>Physisch, digital, Dienstleistung als Demo</li><li>Fachpublikum schmal, Publikum breit; nicht überladen</li><li>Neukunden: vorne; Branchenhighlights: innen</li></ul></div>
+    <div class="box"><span class="no">Gestaltungselemente</span><h3>Sieben Bausteine</h3><ul><li>Boden, Farbe, Form, Material, Beschriftung, Beleuchtung, Mobiliar</li><li>Alles CI-konform und aufeinander abgestimmt</li><li>Brandschutz und technische Richtlinien einhalten</li></ul></div>
+    <div class="box"><span class="no">Medien</span><h3>Fern, nah, Detail</h3><ul><li>Fern: Banner ≥ 2,30 m über dem Stand</li><li>Nah: Rollups, Flags, Kundenstopper</li><li>Detail: Augenhöhe 0,80–2,30 m, Bilder ≥ 60 × 80 cm bei 2 m</li></ul></div>
+    <div class="box"><span class="no">Aktionen</span><h3>Show mit Bezug</h3><ul><li>Bezug zum Angebot, CI, Zielgruppe, Messeziele</li><li>Früh ankündigen, Proben halten Besucher am Stand</li><li>Genehmigung, Lautstärke, Rechte, Sicherheit</li></ul></div>
+  </div>
+
+  <h2 class="sub">Merkzahlen</h2>
+  <p class="lead">Diese Zahlen lohnen sich auswendig.</p>
+  <div class="box tablebox"><table>
+    <tr><th>Zahl</th><th>Bedeutung</th><th>Thema</th></tr>
+    <tr><td><b>12–9 Monate</b></td><td>Beginn der Entscheidungsphase vor der Messe</td><td>Zeitplan</td></tr>
+    <tr><td><b>5</b></td><td>Phasen: Entscheidung, Planung, Organisation, Durchführung, Nachbereitung</td><td>Zeitplan</td></tr>
+    <tr><td><b>14</b></td><td>Funktionen eines Messestandes</td><td>Funktionen</td></tr>
+    <tr><td><b>4</b></td><td>Zonen nach Falcke</td><td>Funktionsbereiche</td></tr>
+    <tr><td><b>6</b></td><td>Grundprinzipien des Systembaus</td><td>Bauformen</td></tr>
+    <tr><td><b>4</b></td><td>Lichtarten: Grund-, Raum-, Zonen-, Stimmungslicht</td><td>Gestaltung</td></tr>
+    <tr><td><b>≥ 2,30 m</b></td><td>Banner über dem Stand für Fernwirkung</td><td>Medien</td></tr>
+    <tr><td><b>0,80–2,30 m</b></td><td>Augenhöhe für Detailinfos; darunter kaum wahrgenommen</td><td>Medien</td></tr>
+    <tr><td><b>60 × 80 cm</b></td><td>Mindestgröße für Bilder bei 2 m Abstand</td><td>Medien</td></tr>
+    <tr><td><b>130–150 / 180.000 / 10 Mio.</b></td><td>Messen, Aussteller, Besucher pro Jahr in Deutschland</td><td>Grundlagen</td></tr>
+  </table></div>
+
+  <h2 class="sub">Die vier Zonen</h2>
+  <p class="lead">Von hinten (oben) nach vorne zum Gang (unten). Die Kommunikation wird nach innen intensiver.</p>
+  <div class="zones">
+    <div>Funktion<small>Küche, Lager, Prospektraum, Garderobe, Technik, Personalräume</small></div>
+    <div class="dk">Besprechung<small>Vertiefende Beratung, Sitzgruppen, Kabinen, Bar, Bewirtung</small></div>
+    <div>Präsentation<small>Exponate, Medien, Vorführungen, Kurzberatung an Theke</small></div>
+    <div>Orientierung<small>Blickfang, stärkster Verkehr, Filterfunktion</small></div>
+    <div class="aisle">Gang mit Besucherstrom</div>
+  </div>
+</section>
+
+<!-- GLOSSARY -->
+<section class="view" id="begriffe">
+  <h2>Begriffe</h2>
+  <p class="lead">Die wichtigsten Fachbegriffe in einem Satz.</p>
+  <dl id="glossar"></dl>
+</section>
+
+</main>
+<footer>Lernmap · Messestand entwickeln (LF 9). Punkte zu Standarten-Seiten und Systemprinzipien-Beschreibungen sind ergänzt, nicht aus dem Material.</footer>
+
+<script>
+/* ---------- Tabs ---------- */
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.setAttribute('aria-selected',x===t));
+  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===t.dataset.view));
+  window.scrollTo({top:document.querySelector('nav').offsetTop,behavior:'smooth'});
+}));
+
+/* ---------- Mindmap ---------- */
+const branches=[
+ {id:'mes',label:'Messe & Messestand',x:330,y:80,side:-1,leaves:['§ 64 GewO: Messe','§ 65 GewO: Ausstellung','Nutzen für beide Seiten','Merkmale des Stands'],
+  tag:'Grundlagen (AUMA-Text)',points:['<b>Messe (§ 64 GewO):</b> zeitlich begrenzt, meist regelmäßig, viele Aussteller, zeigt das <b>wesentliche</b> Angebot einer Branche, Vertrieb nach Muster an <b>gewerbliche Abnehmer</b>.','<b>AUMA</b> ergänzt: Fachbesucher werden vorher gezielt angesprochen.','<b>Ausstellung (§ 65 GewO):</b> <b>repräsentatives</b> Angebot, verkauft oder informiert zur Absatzförderung, auch für Endverbraucher.','<b>Nutzen Aussteller:</b> Geschäfte anbahnen, Image, Präsentation, Partnersuche, Marktforschung, Werbung mit hohem Erinnerungswert. <b>Nutzen Besucher:</b> Marktüberblick, Preise vergleichen, testen, Verträge abschließen.','<b>Messestand:</b> zeitlich begrenzt, dreidimensional, multifunktional, multisensual, beruht auf der <b>CI</b>.'],merk:'Merke: Messe = Fachpublikum, Ausstellung = auch Endverbraucher. Das legt die Zielgruppe fest.'},
+ {id:'fun',label:'Funktionen & Ziele',x:270,y:230,side:-1,leaves:['14 Funktionen','Wirkung nach außen','Information & Kontakt','Erleben, Träger, Lager'],
+  tag:'Infoblatt Funktionen und Ziele',points:['<b>Wirkung nach außen:</b> Aufmerksamkeit (anziehen, Interesse wecken), Profilierung (vom Wettbewerb abheben), Markenführung (Wiedererkennung, Image), Abgrenzung (offen oder geschlossen steuert den Zustrom).','<b>Information &amp; Kontakt:</b> Information (Marke, Produkte, CI, Beratung), Begegnung und Kommunikation, Orientierung, Verkauf, Kundenbetreuung.','<b>Erleben:</b> Inspiration (räumliches Markenerlebnis), Erlebnis (multisensual), Motivation (Besucher und Mitarbeiter).','<b>Technik &amp; Logistik:</b> Träger („Bühne“ für Exponate, Strom, Wasser, Licht), Lager (Ware, Give-aways, Broschüren).','Die vier Gruppen sind eine Eselsbrücke, im Infoblatt stehen die 14 Funktionen untereinander.'],merk:'Merke: Jede Gestaltungsentscheidung sollte eine Funktion erfüllen.'},
+ {id:'zeit',label:'Zeitplan (AUMA)',x:250,y:380,side:-1,leaves:['12–9: Entscheidung','9–8: Planung','8–1: Organisation','Messe & Nachbereitung'],
+  tag:'AUMA-Terminplan, Monate bis Messebeginn',points:['<b>1. Entscheidung (12–9):</b> Unternehmensdaten, Messe auswählen, Grobkonzept (Ziele, Exponate, Platzbedarf), Teilnahme beschließen, Team, <b>Anmeldung mit Standgröße und -typ</b>.','<b>2. Planung (9–8):</b> Terminplan, Budget und Kostenkalkulation, Standpersonal, Hotel, Reise.','<b>3. Organisation (8–5, 2–1):</b> Standservices (Strom, Wasser, IT), Dienstleister briefen, Exponate, Transport, Prospekte, Standgrafik; später Einladungen, Presse, Kick-off, Catering.','<b>4. Durchführung:</b> Aufbau überwachen, Abnahme, Übergabe; auf der Messe Kunden betreuen, Gespräche dokumentieren, Wettbewerb beobachten; Abbau, Rücktransport.','<b>5. Nachbereitung:</b> Follow-up, Kostenkontrolle, <b>Erfolgskontrolle</b>, Manöverkritik, Abschlussbericht, Folgemesse.'],merk:'Merke: Anmeldeschluss beachten. Die Ziele aus Phase 1 sind der Maßstab in Phase 5.'},
+ {id:'bau',label:'Standart & Bauweise',x:270,y:530,side:-1,leaves:['Reihen-, Eck-, Kopfstand','Blockstand','Offen, teilweise offen','Geschlossen'],
+  tag:'Infoblatt Standbauweisen',points:['<b>Standarten</b> (offene Seiten ergänzt): Reihenstand 1, Eckstand 2, Kopfstand 3, Blockstand 4.','<b>Offen:</b> keine sichtbehindernden Außenflächen, alle Exponate sofort sichtbar, einladend. Für den Blockstand.','<b>Teilweise offen:</b> einzelne Außenflächen reduzieren den Einblick. Kommt häufig vor, z. B. am Eckstand.','<b>Geschlossen:</b> Raumelemente bilden den Korpus, teilen in Zonen für störungsfreien Betrieb, Wände als Infofläche. Besucher muss hinein, also <b>Neugier wecken</b>. Für Reihen-, Kopf- und Blockstand.'],merk:'Merke: Offen lädt ein, geschlossen filtert.'},
+ {id:'form',label:'Standbauformen',x:330,y:680,side:-1,leaves:['Konventionell','Systemstand','Mischform','6 Systemprinzipien'],
+  tag:'Infoblatt Konventionell vs. Systemstand',points:['<b>Konventionell:</b> individuell gefertigt, Fachpersonal, viel Planungszeit, höhere Kosten. Dafür jede Architektur möglich und hohe <b>Sog-, Aufmerksamkeits- und Signalwirkung</b>.','Teile oft nicht wiederverwendbar; Kosten für Entsorgung, Lagerung und Transport mitdenken.','<b>System:</b> vorgefertigte, modulare Bauteile; mehrfach nutzbar, wirtschaftlicher, umweltschonender, gut transportierbar, wenig Personal; kaufen oder mieten; sogar Doppelstock möglich.','<b>Mischform:</b> konventionell plus Systembauteile.','<b>6 Prinzipien:</b> Stütze-Zarge, Stab-Knoten, Platten, Paneel-Stangen, Struktur-Träger (Traversen), Falt/Klapp/Steck.'],merk:'Merke: Individuell = Signalwirkung. System = günstig, schnell, wiederverwendbar.'},
+ {id:'zone',label:'Funktionsbereiche',x:870,y:80,side:1,leaves:['Orientierung','Präsentation','Besprechung','Funktion'],
+  tag:'Kommunikationsschema nach Falcke',points:['Vier Zonen von außen nach innen, die <b>Kommunikationsintensität steigt</b>.','<b>Orientierung:</b> stärkster Verkehr, am besten einsehbar, Produkt oder Aktion als Blickfang, <b>Filterfunktion</b>.','<b>Präsentation:</b> Produkte, Medien, Vorführungen; frei zugänglich und übersichtlich; Kurzgespräch am Objekt, Theken; erste Kundenbetreuung (Holtmann).','<b>Besprechung:</b> meist hinten, Sitzgruppen, Kabinen, Bar; vertraulich; Bewirtung bindet Kunden; Besucher läuft an Produkten vorbei.','<b>Funktion:</b> Küche, Lager, Prospektraum, Garderobe, Technik, Personalräume; Umfang je nach Standgröße und Personal.'],merk:'Merke: Orientieren, Präsentieren, Besprechen, Funktion. Von außen nach innen.'},
+ {id:'expo',label:'Exponate',x:930,y:230,side:1,leaves:['Physisch & digital','Breit oder schmal','Platzierung','Inszenierung'],
+  tag:'Infoblatt Exponate',points:['Exponate sind die <b>zentralen Elemente</b>: zeigen Leistung, steigern Absatz, belegen Werbeaussage, Funktion, Sicherheit, Innovation und Design.','<b>Formen:</b> Maschinen, Prototypen, Modelle; digital: Software-Demo, VR, Simulation; Dienstleistungen: Präsentation, Live-Demo.','<b>Auswahl:</b> breit für viele Besucher, schmal für Fachbesucher; nicht überladen, Schwerpunkte nach Zielen, Messetyp, Zielgruppe.','<b>Platzierung:</b> Neukunden gewinnen: am Orientierungsbereich. Branchenhighlights: innen, ungestört, aber weniger spontan. Freistehendes wird zuerst gesehen.','<b>Inszenierung:</b> Podeste, Vitrinen; Maschinen im Nutzungszusammenhang; Ausprobieren; Licht und Farbe; Info direkt daneben.'],merk:'Merke: Weniger, aber gezielt. Exponate sind meist der Blickfang.'},
+ {id:'gest',label:'Gestaltungselemente',x:950,y:380,side:1,leaves:['Boden & Farbe','Form & Material','Beschriftung','Licht & Mobiliar'],
+  tag:'Infoblatt Gestaltungselemente',points:['<b>Basis:</b> Messekonzept und CI; Rahmen durch personelle, räumliche, technische und finanzielle Möglichkeiten und die <b>Richtlinien des Veranstalters</b>.','<b>Boden:</b> passend zum CD, trennt Zonen optisch, belastbar, trittsicher, Logo auf dem Boden möglich.','<b>Farbe:</b> Hausfarben; hell = groß und offen, dunkel = intim und exklusiv; Natur Grün, Technik Blau/Grau; Kontraste führen.','<b>Form:</b> einfache bis mittlere Komplexität wird am besten verstanden; geometrisch für Technik, organisch für Kreativ und Nachhaltigkeit.','<b>Material:</b> robust, CD-konform, recycelbar, <b>brandschutzgerecht</b>, standsicher, barrierefrei; Holz und Textil verbessern die Akustik.','<b>Beschriftung:</b> lesbar aus der Ferne, Groß- und Kleinschreibung, starker Kontrast, kurze Kernbotschaften, Augenhöhe, beleuchtet, Urheberrecht.','<b>Licht:</b> Grund-, Raum-, Zonen-, Stimmungslicht; LED. <b>Möbel:</b> bequem, rund = einladend, eckig = professionell, nicht überladen, definieren Bereiche.'],merk:'Merke: Alles CI-konform und aufeinander abgestimmt. Die Gestaltung darf das Angebot nicht verdrängen.'},
+ {id:'med',label:'Medien',x:930,y:530,side:1,leaves:['Fern: Banner ≥ 2,30 m','Nah: Rollups, Flags','Detail: 0,80–2,30 m','GEMA bei Musik'],
+  tag:'Infoblatt Medien',points:['<b>Grundsätze:</b> Texte knapp, präzise, verständlich; Wichtigstes zuerst (Hierarchie); Leseabstand und Laufweg beachten; Corporate Design.','<b>Fernwirkung:</b> Stand in der Halle finden; Banner mit Logo und Namen mindestens <b>2,30 m über dem Stand</b>.','<b>Nahwirkung:</b> Bereich auf dem Stand finden (Leitfunktion); Aufsteller, Plakate, Rollups, Popups, Flags, Kundenstopper, Filme.','<b>Detailwirkung:</b> Produkte erklären; direkt am Angebot auf <b>0,80–2,30 m</b>; Bilder bei 2 m Abstand mindestens <b>60 × 80 cm</b>; mehrsprachige Prospekte.','Lautstärke darf Gespräche nicht stören; Licht so, dass Bildschirme lesbar sind; für Musik <b>GEMA-Genehmigung</b>.'],merk:'Merke: Fern = Stand finden, Nah = Bereich finden, Detail = Produkt verstehen.'},
+ {id:'akt',label:'Aktionen',x:870,y:680,side:1,leaves:['Show, Gewinnspiel','Bezug zum Angebot','Genehmigung','Erfolg messen'],
+  tag:'Infoblatt Aktionen',points:['<b>Beispiele:</b> Talkshow, Lesung, Musik, Pantomime, Akrobatik, Kostproben, Verlosung, Gewinnspiel, Produktvorführung, Workshop.','Aktionen erreichen ein <b>breites Publikum</b>, brauchen aber einen klaren <b>Bezug zum Angebot</b>, damit das Unternehmen in Erinnerung bleibt.','Nur sinnvoll, wenn CI-konform, im Gesamtkonzept, zielgruppengerecht und auf die Messeziele ausgerichtet.','Früh über Werbemittel ankündigen; passendes Umfeld; Getränke und Proben halten Besucher am Stand.','<b>Genehmigung</b> des Veranstalters; Lautstärke, Aufführungsrechte, Raum, Gefährdungen beachten; Kosten, Wiederholbarkeit, Erfolgskontrolle.'],merk:'Merke: Ziel ist eine positive Einstellung zum Unternehmen, nicht nur zur Show.'}
+];
+const NS='http://www.w3.org/2000/svg', svg=document.getElementById('mapsvg');
+function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);(parent||svg).appendChild(e);return e;}
+const CX=600,CY=380,BW=210,BH=50;
+const wires=el('g',{}), nodes=el('g',{});
+branches.forEach(b=>{
+  const sx=CX+b.side*95, ex=b.x-b.side*BW/2, mx=(sx+ex)/2;
+  el('path',{class:'wire',d:`M${sx},${CY} C${mx},${CY} ${mx},${b.y} ${ex},${b.y}`},wires);
+  b.leaves.forEach((l,i)=>{
+    const ly=b.y+(i-(b.leaves.length-1)/2)*30, lx=b.x+b.side*(BW/2+50);
+    const bx=b.x+b.side*BW/2;
+    el('path',{class:'wire thin',d:`M${bx},${b.y} C${bx+b.side*25},${b.y} ${lx-b.side*25},${ly} ${lx-b.side*6},${ly}`},wires);
+    const t=el('text',{class:'leaf',x:lx,y:ly+5,'text-anchor':b.side<0?'end':'start'},nodes);t.textContent=l;
+  });
+  const g=el('g',{class:'b-node',tabindex:0,role:'button','data-id':b.id},nodes);
+  el('rect',{x:b.x-BW/2,y:b.y-BH/2,width:BW,height:BH,rx:25},g);
+  const t=el('text',{x:b.x,y:b.y+6,'text-anchor':'middle'},g);t.textContent=b.label;
+  g.addEventListener('click',()=>select(b.id));
+  g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select(b.id);}});
+});
+const c=el('g',{},nodes);
+el('circle',{cx:CX,cy:CY,r:95,fill:'#111111'},c);
+[['Messestand',-14],['entwickeln',10],['Lernfeld 9',38]].forEach(([s,dy],i)=>{
+  const t=el('text',{x:CX,y:CY+dy,'text-anchor':'middle',fill:i<2?'#F4F4F4':'#9A9A9A','font-size':i<2?22:14,'font-weight':i<2?700:500},c);t.textContent=s;
+});
+function select(id){
+  const b=branches.find(x=>x.id===id);
+  document.querySelectorAll('.b-node').forEach(n=>n.classList.toggle('sel',n.dataset.id===id));
+  document.getElementById('panel').innerHTML=`<h3>${b.label}</h3><p class="tagline">${b.tag}</p><ul>${b.points.map(p=>`<li>${p}</li>`).join('')}</ul><p class="merk">${b.merk}</p>`;
+}
+select('mes');
+
+/* ---------- Flashcards ---------- */
+const cards=[
+ ['Grundlagen','Wie definiert § 64 GewO eine Messe?','Zeitlich begrenzte, meist regelmäßig wiederkehrende Veranstaltung, auf der viele Aussteller das wesentliche Angebot einer oder mehrerer Branchen zeigen und überwiegend nach Muster an gewerbliche Abnehmer vertreiben.'],
+ ['Grundlagen','Was unterscheidet eine Ausstellung (§ 65 GewO) von einer Messe?','Sie zeigt ein repräsentatives Angebot und kann auch nur informieren. Sie ist nicht auf gewerbliche Abnehmer beschränkt.'],
+ ['Grundlagen','Was ergänzt die AUMA-Definition der Messe?','Fachbesucher werden vorher gezielt angesprochen.'],
+ ['Grundlagen','Nenne vier Vorteile einer Messe für Aussteller.','Geschäftsanbahnung, Imagepflege, Produktpräsentation, Partnersuche, Marktforschung, Werbung mit hohem Erinnerungswert.'],
+ ['Grundlagen','Welche Merkmale hat ein Messestand?','Zeitlich begrenzt, dreidimensional, multifunktional, ansprechend gestaltet, multisensual; beruht auf der Unternehmensidentität.'],
+ ['Grundlagen','Welche Ausgangsgrößen bestimmen die Standplanung?','Ziele, Zielgruppe, Etat, Angebot, Leitidee und bauliche Gegebenheiten der Messe.'],
+ ['Funktionen','Nenne die Funktionen, die nach außen wirken.','Aufmerksamkeits-, Profilierungs-, Markenführungs- und Abgrenzungsfunktion.'],
+ ['Funktionen','Was ist die Abgrenzungsfunktion?','Ein offenes oder geschlossenes Standkonzept steuert, wie viele Besucher auf den Stand kommen.'],
+ ['Funktionen','Was meint die Trägerfunktion?','Der Stand ist „Bühne“ für die Exponate und trägt die technischen Einrichtungen wie Strom, Wasser und Licht.'],
+ ['Funktionen','Wozu dient die Lagerfunktion?','Aufbewahrung von Verkaufsware, Give-aways und Broschüren.'],
+ ['Funktionen','Was ist die Erlebnisfunktion?','Ein intensives, einzigartiges, multisensuales Markenerlebnis für Besucher und Mitarbeiter bieten.'],
+ ['Zeitplan','Wann beginnt die Entscheidungsphase?','12 bis 9 Monate vor Messebeginn.'],
+ ['Zeitplan','Was ist bei der Anmeldung unbedingt zu beachten?','Der Anmeldeschluss der Messe. Dabei werden Standgröße und Standtyp festgelegt.'],
+ ['Zeitplan','Was passiert in der Planungsphase?','Terminplanung, Budget und Kostenkalkulation, Personaleinsatz mit Standpersonal, Hotel und Reise.'],
+ ['Zeitplan','Was gehört zur Nachbereitung?','Follow-up, Abrechnung, Erfolgskontrolle, Manöverkritik, Abschlussbericht, Entscheidung zur Folgemesse.'],
+ ['Bauweise','Nenne die vier Standarten.','Reihenstand, Eckstand, Kopfstand, Blockstand.'],
+ ['Bauweise','Welche Wirkung hat die offene Bauweise?','Alle Exponate sind sofort sichtbar, der Stand wirkt überschaubar und einladend.'],
+ ['Bauweise','Was ist die Herausforderung bei der geschlossenen Bauweise?','Besucher müssen hineingehen, um Produkte zu sehen. Der Stand muss deshalb Neugier wecken.'],
+ ['Bauweise','Welche Vorteile hat die geschlossene Bauweise?','Störungsfreie Zonen und Wände, die als Infofläche für Fotos, Grafiken und Texte dienen.'],
+ ['Bauform','Nenne zwei Vor- und zwei Nachteile des konventionellen Stands.','Vorteile: individuelle Architektur, hohe Signal- und Sogwirkung. Nachteile: hohe Kosten und Planungszeit, Teile oft nicht wiederverwendbar.'],
+ ['Bauform','Warum ist der Systemstand wirtschaftlicher?','Modulare Teile sind mehrfach nutzbar, gut transportier- und lagerbar und brauchen wenig Personal für Auf- und Abbau.'],
+ ['Bauform','Nenne die sechs Grundprinzipien des Systembaus.','Stütze-Zarge, Stab-Knoten, Platten, Paneel-Stangen, Struktur-Träger (Traversen), Falt/Klapp/Steck.'],
+ ['Zonen','Nenne die vier Zonen nach Falcke.','Orientierung, Präsentation, Besprechung, Funktion.'],
+ ['Zonen','Was ist die Filterfunktion der Orientierungszone?','Durch den Blickfang erkennt der Besucher das Angebot und entscheidet, ob er eintritt. Schaulustige und Interessenten werden getrennt.'],
+ ['Zonen','Was passiert in der Präsentationszone?','Produkte, Medien und Vorführungen werden frei zugänglich gezeigt, erste Kurzgespräche am Objekt.'],
+ ['Zonen','Warum liegt die Besprechungszone hinten?','Dort ist es ruhig für vertrauliche Gespräche, und der Besucher läuft auf dem Weg an Produkten vorbei.'],
+ ['Zonen','Was gehört in den Funktionsbereich?','Küche, Lager, Prospektraum, Garderobe, Technik-, Personal- und Serviceräume.'],
+ ['Exponate','Wann wählst du ein breites, wann ein schmales Angebot?','Breit, um viele Besucher anzusprechen. Schmal, um Fachbesucher gezielt auf bestimmte Produkte zu lenken.'],
+ ['Exponate','Wo platzierst du Exponate, um Neukunden zu gewinnen?','Entlang des Orientierungsbereichs.'],
+ ['Exponate','Wie präsentierst du Maschinen am besten?','Im Nutzungszusammenhang, mit Vorführung oder zum Ausprobieren.'],
+ ['Exponate','Wie zeigst du Dienstleistungen oder Software?','Mit audiovisuellen Medien: Filme, Bilder, Präsentationen, Live-Demos, Vorträge.'],
+ ['Gestaltung','Welche Elemente gehören zur Standgestaltung?','Standbauform, Standbauweise, Standart, Produkte, Mobiliar, Farben, Formen, Beschriftung, Material, Bodenbelag, Beleuchtung, Medien.'],
+ ['Gestaltung','Welche Wirkung haben helle und dunkle Farben?','Hell lässt den Stand größer und offener wirken, dunkel erzeugt Intimität und Exklusivität.'],
+ ['Gestaltung','Welche Formen sind am leichtesten zu verstehen?','Formen mit einfacher bis mittlerer Komplexität.'],
+ ['Gestaltung','Nenne fünf Anforderungen an Standmaterial.','Robust, CD-konform, recycelbar, brandschutzgerecht, standsicher und barrierefrei.'],
+ ['Gestaltung','Nenne die vier Lichtarten.','Grundbeleuchtung, Raumbeleuchtung, Zonenlicht, Stimmungslicht.'],
+ ['Gestaltung','Wie wirken runde und eckige Möbel?','Runde wirken einladend, eckige strukturiert und professionell.'],
+ ['Medien','Wie erreichst du Fernwirkung?','Mit einem Banner mit Logo und Firmennamen, mindestens 2,30 m über dem Stand.'],
+ ['Medien','In welcher Höhe gehören Detailinfos hin?','Auf Augenhöhe zwischen 0,80 und 2,30 m. Darunter werden sie kaum wahrgenommen.'],
+ ['Medien','Wie groß sollten Bilder bei 2 m Betrachtungsabstand sein?','Mindestens 60 × 80 cm.'],
+ ['Medien','Was musst du bei Musik auf dem Stand beachten?','GEMA-Genehmigung einholen und die Lautstärke so wählen, dass Gespräche nicht gestört werden.'],
+ ['Aktionen','Wann lohnt sich eine Aktion?','Wenn sie Bezug zum Angebot hat, zur CI passt, die Zielgruppe anspricht und zu den Messezielen beiträgt.'],
+ ['Aktionen','Welche Regeln gelten für Aktionen?','Genehmigung des Veranstalters, Lautstärke, Aufführungsrechte, räumliche Vorgaben, Gefährdungen beachten.'],
+ ['Zusammenhang','Wie hängen Zonen und Medienwirkung zusammen?','Fernwirkung führt zum Stand, Nahwirkung durch Orientierung und Präsentation, Detailwirkung in Präsentation und Besprechung.'],
+ ['Zusammenhang','Warum kommen Ziele und Zielgruppe zuerst?','Alle späteren Entscheidungen, von Exponaten bis Aktionen, müssen damit begründet werden. Und die Erfolgskontrolle misst an den Zielen.'],
+ ['Zusammenhang','Was verbindet alle Gestaltungselemente?','Die Corporate Identity. Farbe, Form, Schrift, Material, Medien und Aktionen sollen einheitlich wirken.']
+];
+let topic='Alle', deck=[], pos=0, known=new Set();
+const topics=['Alle',...new Set(cards.map(c=>c[0]))];
+const fcF=document.getElementById('fcFilter');
+topics.forEach(t=>{const b=document.createElement('button');b.className='chip'+(t==='Alle'?' on':'');b.textContent=t;b.onclick=()=>{topic=t;fcF.querySelectorAll('.chip').forEach(x=>x.classList.toggle('on',x===b));build();};fcF.appendChild(b);});
+const cardEl=document.getElementById('card');
+function build(shuffle){deck=cards.map((c,i)=>i).filter(i=>topic==='Alle'||cards[i][0]===topic);if(shuffle)deck.sort(()=>Math.random()-.5);pos=0;show();}
+function show(){
+  cardEl.classList.remove('flip');
+  const c=cards[deck[pos]];
+  document.getElementById('fTopic').textContent=c[0];document.getElementById('fText').textContent=c[1];
+  document.getElementById('bTopic').textContent=c[0];document.getElementById('bText').textContent=c[2];
+  document.getElementById('count').textContent=`${pos+1} / ${deck.length}`;
+  document.getElementById('prev').disabled=pos===0;
+  document.getElementById('next').disabled=pos===deck.length-1;
+  const k=deck.filter(i=>known.has(i)).length;
+  document.getElementById('bar').style.width=(k/deck.length*100)+'%';
+  document.getElementById('statKnown').textContent=`${k} von ${deck.length} gewusst`;
+}
+cardEl.onclick=()=>cardEl.classList.toggle('flip');
+document.getElementById('prev').onclick=()=>{if(pos>0){pos--;show();}};
+document.getElementById('next').onclick=()=>{if(pos<deck.length-1){pos++;show();}};
+document.getElementById('known').onclick=()=>{known.add(deck[pos]);if(pos<deck.length-1)pos++;show();};
+document.getElementById('again').onclick=()=>{known.delete(deck[pos]);const c=deck.splice(pos,1)[0];deck.push(c);if(pos>=deck.length)pos=deck.length-1;show();};
+document.getElementById('shuffle').onclick=()=>build(true);
+document.getElementById('reset').onclick=()=>{known.clear();build();};
+document.addEventListener('keydown',e=>{if(!document.getElementById('karten').classList.contains('active'))return;
+  if(e.key==='ArrowRight')document.getElementById('next').click();if(e.key==='ArrowLeft')document.getElementById('prev').click();
+  if(e.key===' '){e.preventDefault();cardEl.click();}});
+build();
+
+/* ---------- Quiz ---------- */
+const quiz=[
+ ['An wen vertreibt eine Messe nach § 64 GewO überwiegend?',['An Endverbraucher','An gewerbliche Abnehmer','An Schulen','Nur an Presse'],1,'Vertrieb nach Muster an Wiederverkäufer, gewerbliche Verbraucher oder Großabnehmer.'],
+ ['Welche Funktion steuert über offene oder geschlossene Bauweise den Besucherzustrom?',['Trägerfunktion','Abgrenzungsfunktion','Lagerfunktion','Motivationsfunktion'],1,'Die Abgrenzungsfunktion bestimmt, wie leicht Besucher auf den Stand kommen.'],
+ ['Wann beginnt laut AUMA die Entscheidungsphase?',['1–2 Monate vorher','5–8 Monate vorher','9–12 Monate vorher','Nach der Messe'],2,'12 bis 9 Monate vor Messebeginn, inklusive Anmeldung.'],
+ ['Welche Bauweise eignet sich laut Infoblatt für den Blockstand, damit alles sofort sichtbar ist?',['Offen','Geschlossen','Falt-System','Doppelstock'],0,'Ohne sichtbehindernde Außenflächen sind alle Exponate unmittelbar sichtbar.'],
+ ['Was muss ein geschlossener Stand besonders leisten?',['Viel Lagerplatz bieten','Neugier wecken, damit Besucher hineingehen','Möglichst billig sein','Ohne Licht auskommen'],1,'Produkte sieht man erst innen, also muss der Stand neugierig machen.'],
+ ['Was ist ein Vorteil des konventionellen Stands?',['Geringe Kosten','Wenig Planungszeit','Hohe Signal- und Sogwirkung','Immer wiederverwendbar'],2,'Individuelle Architektur erzeugt hohe Aufmerksamkeit.'],
+ ['Welches gehört NICHT zu den sechs Systemprinzipien?',['Stütze-Zarge','Stab-Knoten','Beton-Guss','Struktur-Träger'],2,'Die sechs sind Stütze-Zarge, Stab-Knoten, Platten, Paneel-Stangen, Struktur-Träger, Falt/Klapp/Steck.'],
+ ['Welche Zone hat die Filterfunktion?',['Funktionsbereich','Besprechungsbereich','Orientierungsbereich','Lager'],2,'Der Blickfang am Gang trennt Schaulustige von Interessenten.'],
+ ['Wo liegt der Besprechungsbereich meist?',['Direkt am Gang','Im hinteren Teil des Standes','Auf dem Dach','Außerhalb der Halle'],1,'Hinten ist es ruhig, und Besucher werden an den Produkten vorbeigeführt.'],
+ ['Ein Aussteller will vor allem Neukunden gewinnen. Wo platziert er die Exponate?',['Im Lager','Entlang des Orientierungsbereichs','In geschlossenen Kabinen','Hinter der Theke'],1,'Am Gang sehen möglichst viele Besucher das Angebot.'],
+ ['Wie wirken dunkle Farben auf einem Stand?',['Groß und offen','Intim und exklusiv','Billig','Neutral'],1,'Helle Farben öffnen, dunkle schaffen Intimität und Exklusivität.'],
+ ['Welche Lichtart setzt gezielt Highlights auf Produkte?',['Grundbeleuchtung','Zonenlicht','Raumbeleuchtung','Notlicht'],1,'Zonenlicht akzentuiert Produkte, Grafiken oder Architektur.'],
+ ['Wie hoch sollte ein Banner für Fernwirkung über den Stand hinausragen?',['Mindestens 0,80 m','Mindestens 1,20 m','Mindestens 2,30 m','Genau 5 m'],2,'Banner mit Logo und Name mindestens 2,30 m über dem Stand.'],
+ ['In welchem Höhenbereich werden Detailinfos gut wahrgenommen?',['0–0,80 m','0,80–2,30 m','2,30–4 m','Über 4 m'],1,'Augenhöhe; unter 0,80 m werden Medien kaum wahrgenommen.'],
+ ['Was brauchst du, wenn auf dem Stand Musik läuft?',['Eine GEMA-Genehmigung','Eine Baugenehmigung','Nichts','Eine Zollabnahme'],0,'Für musikalische Wiedergabe ist die GEMA-Genehmigung einzuholen.'],
+ ['Wann ist eine Aktion auf dem Stand sinnvoll?',['Wenn sie möglichst laut ist','Wenn sie Bezug zum Angebot hat und zur CI passt','Immer','Nur am letzten Messetag'],1,'Sonst bleibt nur die Show in Erinnerung, nicht das Unternehmen.']
+];
+let answered=0, right=0;
+function buildQuiz(){
+  answered=0;right=0;const list=document.getElementById('quizList');list.innerHTML='';
+  quiz.forEach((q,qi)=>{
+    const d=document.createElement('div');d.className='q';
+    d.innerHTML=`<span class="num">Frage ${qi+1} von ${quiz.length}</span><h3>${q[0]}</h3>`+q[1].map((o,i)=>`<button class="opt" data-i="${i}">${o}</button>`).join('')+`<div class="expl">${q[3]}</div>`;
+    d.querySelectorAll('.opt').forEach(b=>b.onclick=()=>{
+      const i=+b.dataset.i;d.classList.add('done');answered++;if(i===q[2])right++;
+      d.querySelectorAll('.opt').forEach(x=>{x.disabled=true;if(+x.dataset.i===q[2])x.classList.add('right');else if(x===b)x.classList.add('wrong');});
+      score();
+    });
+    list.appendChild(d);
+  });score();
+}
+function score(){document.getElementById('scoreTxt').textContent=`${right} von ${answered} richtig · ${quiz.length-answered} offen`;}
+document.getElementById('quizReset').onclick=()=>{buildQuiz();window.scrollTo({top:document.getElementById('quiz').offsetTop-80,behavior:'smooth'});};
+buildQuiz();
+
+/* ---------- Glossary ---------- */
+const gl=[
+ ['Messe','Zeitlich begrenzte, wiederkehrende Veranstaltung mit dem wesentlichen Angebot einer Branche für gewerbliche Abnehmer.'],
+ ['Ausstellung','Veranstaltung mit repräsentativem Angebot, die verkauft oder informiert, auch für Endverbraucher.'],
+ ['AUMA','Ausstellungs- und Messe-Ausschuss der Deutschen Wirtschaft e.V.'],
+ ['Exponat','Ausgestelltes Produkt, Modell, Demo oder Dienstleistung auf dem Stand.'],
+ ['Multisensual','Mit mehreren Sinnen erlebbar: sehen, hören, fühlen, riechen, schmecken.'],
+ ['Corporate Identity (CI)','Gesamtes Selbstbild eines Unternehmens, nach außen sichtbar etwa durch das Corporate Design.'],
+ ['Corporate Design (CD)','Visuelles Erscheinungsbild: Logo, Hausfarben, Schriften.'],
+ ['Reihenstand','Stand mit einer offenen Seite zum Gang.'],
+ ['Eckstand','Stand mit zwei offenen Seiten.'],
+ ['Kopfstand','Stand mit drei offenen Seiten am Ende einer Standreihe.'],
+ ['Blockstand','Freistehender Stand mit vier offenen Seiten (Inselstand).'],
+ ['Konventioneller Stand','Individuell angefertigter Stand mit hoher Signalwirkung, aber hohem Aufwand.'],
+ ['Systemstand','Stand aus vorgefertigten, wiederverwendbaren Bauteilen.'],
+ ['Traverse','Gitterträger des Struktur-Träger-Systems, oft zum Abhängen von Licht.'],
+ ['Orientierungsbereich','Vorderste Zone mit Blickfang und Filterfunktion.'],
+ ['Präsentationsbereich','Zone für Exponate, Medien und Kurzberatung.'],
+ ['Besprechungsbereich','Hintere Zone für vertiefende, oft vertrauliche Gespräche.'],
+ ['Funktionsbereich','Nebenräume wie Küche, Lager, Garderobe und Technik.'],
+ ['Blickfang','Element, das sofort Aufmerksamkeit auf sich zieht, meist ein Exponat oder eine Aktion.'],
+ ['Fernwirkung','Wirkung über große Distanz, damit Besucher den Stand in der Halle finden.'],
+ ['Nahwirkung','Orientierung auf dem Stand, damit Besucher den passenden Bereich finden.'],
+ ['Detailwirkung','Erläuterung des einzelnen Produkts direkt am Angebot.'],
+ ['Kundenstopper','Aufsteller am Gang, der Vorbeigehende anhalten soll.'],
+ ['Zonenlicht','Gezielte Beleuchtung einzelner Produkte, Grafiken oder Architekturteile.'],
+ ['GEMA','Verwertungsgesellschaft für Musikrechte; ihre Genehmigung ist für Musik auf dem Stand nötig.'],
+ ['Erfolgskontrolle','Prüfung nach der Messe, ob die festgelegten Messeziele erreicht wurden.']
+];
+document.getElementById('glossar').innerHTML=gl.map(([t,d])=>`<div><dt>${t}</dt><dd>${d}</dd></div>`).join('');
+</script>
+</body>
+</html>
